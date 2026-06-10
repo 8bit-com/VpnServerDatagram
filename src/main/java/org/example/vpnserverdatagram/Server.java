@@ -7,57 +7,44 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @Service
 public class Server {
 
-    private static final int PORT = 51888;
-    private static final int BUFFER_SIZE = 2048;
-    private static final int SOCKET_BUFFER_SIZE = 16 * 1024 * 1024;
-    private static final int SEND_THREADS = 8;
-
     @EventListener(ApplicationReadyEvent.class)
     public void start() throws IOException {
-        DatagramSocket socket = new DatagramSocket(PORT);
+        DatagramSocket socket = new DatagramSocket(51888);
 
-        socket.setReceiveBufferSize(SOCKET_BUFFER_SIZE);
-        socket.setSendBufferSize(SOCKET_BUFFER_SIZE);
+        socket.setReceiveBufferSize(16 * 1024 * 1024);
+        socket.setSendBufferSize(16 * 1024 * 1024);
 
-        ExecutorService sendPool = Executors.newFixedThreadPool(SEND_THREADS);
-
-        System.out.println("UDP echo server started on port " + PORT);
+        ExecutorService sendPool = Executors.newFixedThreadPool(8);
 
         while (true) {
-            DatagramPacket request = receive(socket);
-            byte[] data = copy(request);
+            byte[] buf = new byte[2048];
+            DatagramPacket packet = new DatagramPacket(buf, buf.length);
 
-            sendPool.execute(() -> send(socket, data, request));
-        }
-    }
+            socket.receive(packet);
 
-    private DatagramPacket receive(DatagramSocket socket) throws IOException {
-        DatagramPacket packet = new DatagramPacket(new byte[BUFFER_SIZE], BUFFER_SIZE);
-        socket.receive(packet);
-        return packet;
-    }
+            byte[] data = packet.getData();
+            int length = packet.getLength();
+            InetAddress address = packet.getAddress();
+            int port = packet.getPort();
 
-    private byte[] copy(DatagramPacket packet) {
-        byte[] data = new byte[packet.getLength()];
-        System.arraycopy(packet.getData(), packet.getOffset(), data, 0, packet.getLength());
-        return data;
-    }
-
-    private void send(DatagramSocket socket, byte[] data, DatagramPacket request) {
-        try {
-            socket.send(new DatagramPacket(
-                    data,
-                    data.length,
-                    request.getAddress(),
-                    request.getPort()
-            ));
-        } catch (Exception ignored) {
+            sendPool.execute(() -> {
+                try {
+                    socket.send(new DatagramPacket(
+                            data,
+                            length,
+                            address,
+                            port
+                    ));
+                } catch (Exception ignored) {
+                }
+            });
         }
     }
 }
