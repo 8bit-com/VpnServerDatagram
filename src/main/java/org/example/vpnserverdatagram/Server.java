@@ -25,14 +25,14 @@ public class Server {
 
         while (true) {
             byte[] buf = new byte[2048];
-            DatagramPacket p = new DatagramPacket(buf, buf.length);
+            DatagramPacket packet = new DatagramPacket(buf, buf.length);
 
-            socket.receive(p);
+            socket.receive(packet);
 
-            byte[] data = p.getData();
-            int length = p.getLength();
-            InetAddress address = p.getAddress();
-            int port = p.getPort();
+            byte[] data = packet.getData();
+            int length = packet.getLength();
+            InetAddress address = packet.getAddress();
+            int port = packet.getPort();
 
             sendPool.execute(() -> {
                 try {
