@@ -7,9 +7,6 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 @Service
 public class Server {
@@ -21,30 +18,33 @@ public class Server {
         socket.setReceiveBufferSize(16 * 1024 * 1024);
         socket.setSendBufferSize(16 * 1024 * 1024);
 
-        ExecutorService sendPool = Executors.newFixedThreadPool(8);
+        System.out.println("UDP server started on port 51888");
 
         while (true) {
-            byte[] buf = new byte[2048];
-            DatagramPacket packet = new DatagramPacket(buf, buf.length);
+            byte[] buffer = new byte[2048];
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
 
             socket.receive(packet);
 
-            byte[] data = packet.getData();
-            int length = packet.getLength();
-            InetAddress address = packet.getAddress();
-            int port = packet.getPort();
-
-            sendPool.execute(() -> {
-                try {
-                    socket.send(new DatagramPacket(
-                            data,
-                            length,
-                            address,
-                            port
-                    ));
-                } catch (Exception ignored) {
-                }
-            });
+            byte[] data = copyPacketData(packet);
+            printPacket(data);
         }
+    }
+
+    private byte[] copyPacketData(DatagramPacket packet) {
+        byte[] data = new byte[packet.getLength()];
+        System.arraycopy(packet.getData(), packet.getOffset(), data, 0, packet.getLength());
+        return data;
+    }
+
+    private void printPacket(byte[] packet) {
+        int version = (packet[0] >>> 4) & 0x0F;
+
+        if (version == 4) {
+            System.out.println("SERVER TUN PACKET: IPv4 size=" + packet.length + ", protocol=" + (packet[9] & 0xFF));
+            return;
+        }
+
+        System.out.println("SERVER TUN PACKET: version=" + version + ", size=" + packet.length);
     }
 }
