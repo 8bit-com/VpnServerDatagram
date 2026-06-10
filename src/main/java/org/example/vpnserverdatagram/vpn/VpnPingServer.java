@@ -1,13 +1,8 @@
 package org.example.vpnserverdatagram.vpn;
 
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
-import org.springframework.stereotype.Service;
-
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 
-@Service
 public class VpnPingServer {
 
     private static final int PORT = 51889;
@@ -17,7 +12,6 @@ public class VpnPingServer {
 
     private final IcmpEchoReplyBuilder icmpEchoReplyBuilder = new IcmpEchoReplyBuilder(SERVER_TUN_IP);
 
-    @EventListener(ApplicationReadyEvent.class)
     public void start() {
         Thread thread = new Thread(this::run, "vpn-ping-server");
         thread.start();
