@@ -7,6 +7,9 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Service
 public class Server {
@@ -15,22 +18,33 @@ public class Server {
     public void start() throws IOException {
         DatagramSocket socket = new DatagramSocket(51888);
 
-        System.out.println("UDP echo server started on port 51888");
+        socket.setReceiveBufferSize(16 * 1024 * 1024);
+        socket.setSendBufferSize(16 * 1024 * 1024);
 
-        byte[] buffer = new byte[2048];
+        ExecutorService sendPool = Executors.newFixedThreadPool(8);
 
         while (true) {
-            DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+            byte[] buf = new byte[2048];
+            DatagramPacket p = new DatagramPacket(buf, buf.length);
 
-            socket.receive(packet);
+            socket.receive(p);
 
-            socket.send(new DatagramPacket(
-                    packet.getData(),
-                    packet.getLength(),
-                    packet.getAddress(),
-                    packet.getPort()
-            ));
+            byte[] data = p.getData();
+            int length = p.getLength();
+            InetAddress address = p.getAddress();
+            int port = p.getPort();
+
+            sendPool.execute(() -> {
+                try {
+                    socket.send(new DatagramPacket(
+                            data,
+                            length,
+                            address,
+                            port
+                    ));
+                } catch (Exception ignored) {
+                }
+            });
         }
     }
-
 }
