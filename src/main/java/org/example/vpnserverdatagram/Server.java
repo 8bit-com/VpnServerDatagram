@@ -7,9 +7,6 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 @Service
 public class Server {
@@ -18,33 +15,28 @@ public class Server {
     public void start() throws IOException {
         DatagramSocket socket = new DatagramSocket(51888);
 
-        socket.setReceiveBufferSize(16 * 1024 * 1024);
-        socket.setSendBufferSize(16 * 1024 * 1024);
+        byte[] buffer = new byte[1024];
 
-        ExecutorService sendPool = Executors.newFixedThreadPool(8);
+        System.out.println("Server started on UDP port 51888");
 
         while (true) {
-            byte[] buf = new byte[2048];
-            DatagramPacket packet = new DatagramPacket(buf, buf.length);
-
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
             socket.receive(packet);
 
-            byte[] data = packet.getData();
-            int length = packet.getLength();
-            InetAddress address = packet.getAddress();
-            int port = packet.getPort();
+            String text = new String(packet.getData(), 0, packet.getLength());
 
-            sendPool.execute(() -> {
-                try {
-                    socket.send(new DatagramPacket(
-                            data,
-                            length,
-                            address,
-                            port
-                    ));
-                } catch (Exception ignored) {
-                }
-            });
+            System.out.println("Received: " + text);
+
+            byte[] response = "PONG".getBytes();
+
+            DatagramPacket responsePacket = new DatagramPacket(
+                    response,
+                    response.length,
+                    packet.getAddress(),
+                    packet.getPort()
+            );
+
+            socket.send(responsePacket);
         }
     }
 }
