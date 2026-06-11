@@ -62,23 +62,25 @@ public class TcpEchoServer {
                     return;
                 }
 
-                byte[] response;
-
                 if (frameType == FRAME_TEST) {
-                    response = data;
+                    output.writeByte(frameType);
+                    output.writeInt(data.length);
+                    output.write(data);
+                    output.flush();
                     System.out.println("TCP TEST ECHO: size=" + size + ", client=" + socket.getRemoteSocketAddress());
                 } else if (frameType == FRAME_VPN) {
                     System.out.println("TCP VPN FRAME: size=" + size + ", client=" + socket.getRemoteSocketAddress());
-                    response = icmpTcpPacketHandler.handle(data);
+                    byte[] response = icmpTcpPacketHandler.handle(data);
+                    if (response != null) {
+                        output.writeByte(frameType);
+                        output.writeInt(response.length);
+                        output.write(response);
+                        output.flush();
+                    }
                 } else {
                     System.out.println("TCP UNKNOWN FRAME: type=" + frameType + ", size=" + size);
                     return;
                 }
-
-                output.writeByte(frameType);
-                output.writeInt(response.length);
-                output.write(response);
-                output.flush();
             }
         } catch (Exception ignored) {
         }
