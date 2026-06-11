@@ -10,11 +10,11 @@ public class IcmpTcpPacketHandler {
     private static final byte[] CLIENT_IP = ip(10, 8, 0, 2);
 
     public byte[] handle(byte[] packet) {
+        printAnyIcmp("SERVER VPN ICMP", packet);
+
         if (!isIcmpEchoRequestToServer(packet)) {
             return packet;
         }
-
-        printPing("SERVER PING REQUEST", packet);
 
         byte[] response = packet.clone();
 
@@ -37,7 +37,7 @@ public class IcmpTcpPacketHandler {
         response[10] = (byte) (ipChecksum >> 8);
         response[11] = (byte) ipChecksum;
 
-        printPing("SERVER PING REPLY", response);
+        printAnyIcmp("SERVER VPN REPLY", response);
         return response;
     }
 
@@ -70,8 +70,19 @@ public class IcmpTcpPacketHandler {
         return icmpType == ICMP_ECHO_REQUEST;
     }
 
-    private static void printPing(String prefix, byte[] packet) {
+    private static void printAnyIcmp(String prefix, byte[] packet) {
+        if (packet.length < 28) {
+            return;
+        }
+
+        int version = (packet[0] >> 4) & 0x0F;
         int headerLength = (packet[0] & 0x0F) * 4;
+        int protocol = packet[9] & 0xFF;
+
+        if (version != IPV4_VERSION || protocol != ICMP_PROTOCOL || packet.length < headerLength + 8) {
+            return;
+        }
+
         int icmpType = packet[headerLength] & 0xFF;
         int icmpId = ((packet[headerLength + 4] & 0xFF) << 8) | (packet[headerLength + 5] & 0xFF);
         int icmpSeq = ((packet[headerLength + 6] & 0xFF) << 8) | (packet[headerLength + 7] & 0xFF);
