@@ -19,6 +19,7 @@ public class TcpEchoServer {
     private static final int WORKER_THREADS = 8;
 
     private final ExecutorService workers = Executors.newFixedThreadPool(WORKER_THREADS);
+    private final IcmpTcpPacketHandler icmpTcpPacketHandler = new IcmpTcpPacketHandler();
 
     @EventListener(ApplicationReadyEvent.class)
     public void start() {
@@ -57,8 +58,10 @@ public class TcpEchoServer {
                     return;
                 }
 
-                output.writeInt(data.length);
-                output.write(data);
+                byte[] response = icmpTcpPacketHandler.handle(data);
+
+                output.writeInt(response.length);
+                output.write(response);
                 output.flush();
             }
         } catch (Exception ignored) {
