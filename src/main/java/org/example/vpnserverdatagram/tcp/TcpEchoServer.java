@@ -17,6 +17,8 @@ public class TcpEchoServer {
     private static final int PORT = 51890;
     private static final int MAX_PACKET_SIZE = 2048;
     private static final int WORKER_THREADS = 8;
+    private static final int FRAME_TEST = 1;
+    private static final int FRAME_VPN = 2;
 
     private final ExecutorService workers = Executors.newFixedThreadPool(WORKER_THREADS);
     private final IcmpTcpPacketHandler icmpTcpPacketHandler = new IcmpTcpPacketHandler();
@@ -47,6 +49,7 @@ public class TcpEchoServer {
              DataOutputStream output = new DataOutputStream(socket.getOutputStream())) {
 
             while (true) {
+                int frameType = input.readUnsignedByte();
                 int size = input.readInt();
 
                 if (size <= 0 || size > MAX_PACKET_SIZE) {
@@ -59,15 +62,22 @@ public class TcpEchoServer {
                     return;
                 }
 
-                byte[] response = icmpTcpPacketHandler.handle(data);
+                byte[] response;
 
+                if (frameType == FRAME_TEST) {
+                    response = data;
+                    System.out.println("TCP TEST ECHO: size=" + size + ", client=" + socket.getRemoteSocketAddress());
+                } else if (frameType == FRAME_VPN) {
+                    response = icmpTcpPacketHandler.handle(data);
+                } else {
+                    System.out.println("TCP UNKNOWN FRAME: type=" + frameType + ", size=" + size);
+                    return;
+                }
+
+                output.writeByte(frameType);
                 output.writeInt(response.length);
                 output.write(response);
                 output.flush();
-
-                if (response == data) {
-                    System.out.println("TCP BYTE ECHO: size=" + size + ", client=" + socket.getRemoteSocketAddress());
-                }
             }
         } catch (Exception ignored) {
         }
