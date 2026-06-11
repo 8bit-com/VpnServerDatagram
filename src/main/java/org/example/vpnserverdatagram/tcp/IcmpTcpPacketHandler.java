@@ -10,7 +10,9 @@ public class IcmpTcpPacketHandler {
     private static final byte[] CLIENT_IP = ip(10, 8, 0, 2);
 
     public byte[] handle(byte[] packet) {
-        if (!isIcmpEchoRequestToServer(packet)) {
+        String rejectReason = rejectReason(packet);
+        if (rejectReason != null) {
+            System.out.println("SERVER VPN NOT PING: " + rejectReason + ", size=" + packet.length);
             return null;
         }
 
@@ -41,33 +43,41 @@ public class IcmpTcpPacketHandler {
         return response;
     }
 
-    private boolean isIcmpEchoRequestToServer(byte[] packet) {
-        if (packet.length < 28) {
-            return false;
+    private String rejectReason(byte[] packet) {
+        if (packet.length < 20) {
+            return "packet too short for IPv4 header";
         }
 
         int version = (packet[0] >> 4) & 0x0F;
         int headerLength = (packet[0] & 0x0F) * 4;
 
         if (version != IPV4_VERSION) {
-            return false;
+            return "not IPv4 version=" + version;
         }
 
-        if (headerLength < 20 || packet.length < headerLength + 8) {
-            return false;
+        if (headerLength < 20) {
+            return "bad IPv4 header length=" + headerLength;
+        }
+
+        if (packet.length < headerLength + 8) {
+            return "packet too short for ICMP header, headerLength=" + headerLength;
         }
 
         int protocol = packet[9] & 0xFF;
         if (protocol != ICMP_PROTOCOL) {
-            return false;
+            return "not ICMP protocol=" + protocol + ", src=" + ipToString(packet, 12) + ", dst=" + ipToString(packet, 16);
         }
 
         if (!ipEquals(packet, 16, SERVER_IP)) {
-            return false;
+            return "ICMP dst is not server, src=" + ipToString(packet, 12) + ", dst=" + ipToString(packet, 16);
         }
 
         int icmpType = packet[headerLength] & 0xFF;
-        return icmpType == ICMP_ECHO_REQUEST;
+        if (icmpType != ICMP_ECHO_REQUEST) {
+            return "ICMP type is not echo request, type=" + icmpType + ", src=" + ipToString(packet, 12) + ", dst=" + ipToString(packet, 16);
+        }
+
+        return null;
     }
 
     private static void printAnyIcmp(String prefix, byte[] packet) {
