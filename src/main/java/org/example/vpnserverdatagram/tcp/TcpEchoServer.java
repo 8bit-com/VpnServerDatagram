@@ -68,6 +68,7 @@ public class TcpEchoServer {
                     response = data;
                     System.out.println("TCP TEST ECHO: size=" + size + ", client=" + socket.getRemoteSocketAddress());
                 } else if (frameType == FRAME_VPN) {
+                    System.out.println("TCP VPN FRAME: size=" + size + ", client=" + socket.getRemoteSocketAddress());
                     response = icmpTcpPacketHandler.handle(data);
                 } else {
                     System.out.println("TCP UNKNOWN FRAME: type=" + frameType + ", size=" + size);
