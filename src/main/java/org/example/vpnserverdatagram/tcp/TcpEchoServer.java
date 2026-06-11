@@ -33,6 +33,7 @@ public class TcpEchoServer {
 
             while (true) {
                 Socket socket = serverSocket.accept();
+                System.out.println("TCP client connected: " + socket.getRemoteSocketAddress());
                 workers.execute(() -> handle(socket));
             }
         } catch (Exception e) {
@@ -63,6 +64,10 @@ public class TcpEchoServer {
                 output.writeInt(response.length);
                 output.write(response);
                 output.flush();
+
+                if (response == data) {
+                    System.out.println("TCP BYTE ECHO: size=" + size + ", client=" + socket.getRemoteSocketAddress());
+                }
             }
         } catch (Exception ignored) {
         }
