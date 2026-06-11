@@ -10,11 +10,11 @@ public class IcmpTcpPacketHandler {
     private static final byte[] CLIENT_IP = ip(10, 8, 0, 2);
 
     public byte[] handle(byte[] packet) {
-        printPacket("SERVER RX", packet);
-
         if (!isIcmpEchoRequestToServer(packet)) {
             return packet;
         }
+
+        printPing("SERVER PING REQUEST", packet);
 
         byte[] response = packet.clone();
 
@@ -37,13 +37,12 @@ public class IcmpTcpPacketHandler {
         response[10] = (byte) (ipChecksum >> 8);
         response[11] = (byte) ipChecksum;
 
-        printPacket("SERVER TX", response);
+        printPing("SERVER PING REPLY", response);
         return response;
     }
 
     private boolean isIcmpEchoRequestToServer(byte[] packet) {
         if (packet.length < 28) {
-            System.out.println("SERVER SKIP: too small, size=" + packet.length);
             return false;
         }
 
@@ -51,58 +50,39 @@ public class IcmpTcpPacketHandler {
         int headerLength = (packet[0] & 0x0F) * 4;
 
         if (version != IPV4_VERSION) {
-            System.out.println("SERVER SKIP: not IPv4, version=" + version);
             return false;
         }
 
         if (headerLength < 20 || packet.length < headerLength + 8) {
-            System.out.println("SERVER SKIP: bad IPv4 header length=" + headerLength + ", size=" + packet.length);
             return false;
         }
 
         int protocol = packet[9] & 0xFF;
         if (protocol != ICMP_PROTOCOL) {
-            System.out.println("SERVER SKIP: not ICMP, protocol=" + protocol);
             return false;
         }
 
         if (!ipEquals(packet, 16, SERVER_IP)) {
-            System.out.println("SERVER SKIP: dst is not 10.8.0.1, dst=" + ipToString(packet, 16));
             return false;
         }
 
         int icmpType = packet[headerLength] & 0xFF;
-        if (icmpType != ICMP_ECHO_REQUEST) {
-            System.out.println("SERVER SKIP: not echo request, icmpType=" + icmpType);
-            return false;
-        }
-
-        System.out.println("SERVER MATCH: ICMP echo request to 10.8.0.1");
-        return true;
+        return icmpType == ICMP_ECHO_REQUEST;
     }
 
-    private static void printPacket(String prefix, byte[] packet) {
-        if (packet.length < 20) {
-            System.out.println(prefix + ": size=" + packet.length + ", not IPv4");
-            return;
-        }
-
-        int version = (packet[0] >> 4) & 0x0F;
+    private static void printPing(String prefix, byte[] packet) {
         int headerLength = (packet[0] & 0x0F) * 4;
-        int protocol = packet[9] & 0xFF;
+        int icmpType = packet[headerLength] & 0xFF;
+        int icmpId = ((packet[headerLength + 4] & 0xFF) << 8) | (packet[headerLength + 5] & 0xFF);
+        int icmpSeq = ((packet[headerLength + 6] & 0xFF) << 8) | (packet[headerLength + 7] & 0xFF);
 
-        String extra = "";
-        if (protocol == ICMP_PROTOCOL && packet.length > headerLength) {
-            extra = ", icmpType=" + (packet[headerLength] & 0xFF);
-        }
-
-        System.out.println(prefix + ": size=" + packet.length
-                + ", version=" + version
-                + ", ihl=" + headerLength
-                + ", protocol=" + protocol
-                + ", src=" + ipToString(packet, 12)
+        System.out.println(prefix
+                + ": src=" + ipToString(packet, 12)
                 + ", dst=" + ipToString(packet, 16)
-                + extra);
+                + ", type=" + icmpType
+                + ", id=" + icmpId
+                + ", seq=" + icmpSeq
+                + ", size=" + packet.length);
     }
 
     private static int checksum(byte[] data, int offset, int length) {
