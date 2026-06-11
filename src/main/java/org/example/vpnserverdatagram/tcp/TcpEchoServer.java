@@ -35,6 +35,7 @@ public class TcpEchoServer {
 
             while (true) {
                 Socket socket = serverSocket.accept();
+                socket.setTcpNoDelay(true);
                 System.out.println("TCP client connected: " + socket.getRemoteSocketAddress());
                 workers.execute(() -> handle(socket));
             }
@@ -53,12 +54,14 @@ public class TcpEchoServer {
                 int size = input.readInt();
 
                 if (size <= 0 || size > MAX_PACKET_SIZE) {
+                    System.out.println("TCP BAD FRAME SIZE: type=" + frameType + ", size=" + size + ", client=" + socket.getRemoteSocketAddress());
                     return;
                 }
 
                 byte[] data = input.readNBytes(size);
 
                 if (data.length != size) {
+                    System.out.println("TCP SHORT FRAME: expected=" + size + ", actual=" + data.length + ", client=" + socket.getRemoteSocketAddress());
                     return;
                 }
 
@@ -68,8 +71,10 @@ public class TcpEchoServer {
                     output.write(data);
                     output.flush();
                     System.out.println("TCP TEST ECHO: size=" + size + ", client=" + socket.getRemoteSocketAddress());
-                } else if (frameType == FRAME_VPN) {
-                    System.out.println("TCP VPN FRAME: size=" + size + ", client=" + socket.getRemoteSocketAddress());
+                    continue;
+                }
+
+                if (frameType == FRAME_VPN) {
                     byte[] response = icmpTcpPacketHandler.handle(data);
                     if (response != null) {
                         output.writeByte(frameType);
@@ -77,12 +82,14 @@ public class TcpEchoServer {
                         output.write(response);
                         output.flush();
                     }
-                } else {
-                    System.out.println("TCP UNKNOWN FRAME: type=" + frameType + ", size=" + size);
-                    return;
+                    continue;
                 }
+
+                System.out.println("TCP UNKNOWN FRAME: type=" + frameType + ", size=" + size + ", client=" + socket.getRemoteSocketAddress());
+                return;
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            System.out.println("TCP CLIENT CLOSED OR ERROR: " + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
     }
 }
